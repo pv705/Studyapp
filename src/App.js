@@ -168,7 +168,7 @@ export default function App() {
     <div style={container}>
       <div style={wrapper}>
 
-        <h1>🚀 Anjali’s Study Space</h1>
+        <h1>🚀 SR’s Study Space</h1>
 
         {/* TODAY */}
         <div style={card}>
