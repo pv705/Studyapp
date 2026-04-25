@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 
 /* ---------------- SUBJECTS ---------------- */
 const subjects = ["Agronomy", "Genetics", "Soil Science"];
-
 /* ---------------- DATA ---------------- */
 const quizData = {
   Agronomy: {
@@ -91,7 +90,13 @@ const quizData = {
     ]
   }
 };
-/* ---------------- APP ---------------- */
+/* ---------------- STUDY PLAN (AI-LIKE) ---------------- */
+const studyPlanMap = {
+  Agronomy: ["Cropping Systems", "Irrigation", "Weeds"],
+  Genetics: ["Mendel Laws", "DNA", "Ratios"],
+  "Soil Science": ["pH", "Nutrients", "Soil Types"]
+};
+
 export default function App() {
 
   const todayIndex = new Date().getDate() % subjects.length;
@@ -99,33 +104,41 @@ export default function App() {
 
   const [subject, setSubject] = useState(todaysSubject);
   const [difficulty, setDifficulty] = useState("easy");
-  const [streak, setStreak] = useState(0);
-  const [mistakes, setMistakes] = useState(
-    JSON.parse(localStorage.getItem("mistakes")) || []
+
+  const [currentQ, setCurrentQ] = useState(null);
+  const [feedback, setFeedback] = useState("");
+
+  const [streak, setStreak] = useState(
+    JSON.parse(localStorage.getItem("streak")) || 0
   );
 
   const [attempts, setAttempts] = useState(
     JSON.parse(localStorage.getItem("attempts")) || 0
   );
+
   const [correct, setCorrect] = useState(
     JSON.parse(localStorage.getItem("correct")) || 0
   );
 
-  const [currentQ, setCurrentQ] = useState(null);
-  const [feedback, setFeedback] = useState("");
+  const [mistakes, setMistakes] = useState(
+    JSON.parse(localStorage.getItem("mistakes")) || []
+  );
 
-  /* SAVE */
+  const [weakMode, setWeakMode] = useState(false);
+
+  /* ---------------- SAVE ---------------- */
   useEffect(() => {
-    localStorage.setItem("mistakes", JSON.stringify(mistakes));
+    localStorage.setItem("streak", streak);
     localStorage.setItem("attempts", attempts);
     localStorage.setItem("correct", correct);
-  }, [mistakes, attempts, correct]);
+    localStorage.setItem("mistakes", JSON.stringify(mistakes));
+  }, [streak, attempts, correct, mistakes]);
 
-  /* QUESTION ENGINE */
+  /* ---------------- QUESTION ENGINE ---------------- */
   const getQuestion = () => {
     let pool = quizData[subject][difficulty];
 
-    if (mistakes.length > 0) {
+    if (weakMode && mistakes.length > 0) {
       const weakPool = pool.filter(q => mistakes.includes(q.topic));
       if (weakPool.length > 0) pool = weakPool;
     }
@@ -136,9 +149,9 @@ export default function App() {
 
   useEffect(() => {
     getQuestion();
-  }, [subject, difficulty]);
+  }, [subject, difficulty, weakMode]);
 
-  /* ANSWER */
+  /* ---------------- ANSWER SYSTEM ---------------- */
   const handleAnswer = (opt) => {
     setAttempts(prev => prev + 1);
 
@@ -151,8 +164,8 @@ export default function App() {
       if (streak >= 6 && difficulty === "medium") setDifficulty("hard");
 
     } else {
-      setStreak(0);
       setFeedback("❌ Wrong");
+      setStreak(0);
       setMistakes(prev => [...prev, currentQ.topic]);
     }
 
@@ -164,11 +177,18 @@ export default function App() {
 
   const accuracy = attempts ? ((correct / attempts) * 100).toFixed(0) : 0;
 
+  /* ---------------- AI-STYLE INSIGHT ---------------- */
+  const insight = () => {
+    if (accuracy > 80) return "🔥 Strong performance — move to harder questions";
+    if (accuracy > 50) return "⚡ Good — revise weak topics";
+    return "📉 Focus on basics + repeat mistakes";
+  };
+
   return (
     <div style={container}>
       <div style={wrapper}>
 
-        <h1>🚀 SR’s Study Space</h1>
+        <h1>🚀 SR Workspace</h1>
 
         {/* TODAY */}
         <div style={card}>
@@ -179,13 +199,11 @@ export default function App() {
           </button>
         </div>
 
-        {/* SUBJECTS */}
+        {/* STUDY PLAN */}
         <div style={card}>
-          <h2>📚 Subjects</h2>
-          {subjects.map(s => (
-            <button key={s} style={button} onClick={() => setSubject(s)}>
-              {s}
-            </button>
+          <h2>📅 Study Plan</h2>
+          {studyPlanMap[subject].map((t, i) => (
+            <div key={i} style={task}>{t}</div>
           ))}
         </div>
 
@@ -214,11 +232,21 @@ export default function App() {
           <div style={progressBar}>
             <div style={{ ...progressFill, width: `${accuracy}%` }} />
           </div>
+
+          <p>{insight()}</p>
+        </div>
+
+        {/* WEAK MODE */}
+        <div style={card}>
+          <h2>🎯 Focus Mode</h2>
+          <button style={mainBtn} onClick={() => setWeakMode(!weakMode)}>
+            {weakMode ? "Disable Weak Mode" : "Practice Weak Topics"}
+          </button>
         </div>
 
         {/* WEAK TOPICS */}
         <div style={card}>
-          <h2>🎯 Weak Topics</h2>
+          <h2>⚠️ Weak Topics</h2>
           {[...new Set(mistakes)].map((m, i) => (
             <div key={i}>{m}</div>
           ))}
@@ -227,7 +255,7 @@ export default function App() {
         {/* MESSAGE */}
         <div style={card}>
           <p>
-            You don’t need to do everything. Just today is enough. I’m proud of you ❤️
+            Just focus on today. Consistency beats everything.
           </p>
         </div>
 
@@ -293,4 +321,11 @@ const progressBar = {
 const progressFill = {
   height: "100%",
   background: "#fff"
+};
+
+const task = {
+  padding: 10,
+  marginTop: 8,
+  background: "rgba(255,255,255,0.2)",
+  borderRadius: 10
 };
