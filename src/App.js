@@ -90,7 +90,6 @@ const quizData = {
     ]
   }
 };
-/* ---------------- STUDY PLAN (AI-LIKE) ---------------- */
 const studyPlanMap = {
   Agronomy: ["Cropping Systems", "Irrigation", "Weeds"],
   Genetics: ["Mendel Laws", "DNA", "Ratios"],
@@ -105,37 +104,25 @@ export default function App() {
   const [subject, setSubject] = useState(todaysSubject);
   const [difficulty, setDifficulty] = useState("easy");
 
+  const [queue, setQueue] = useState([]);
   const [currentQ, setCurrentQ] = useState(null);
+
+  const [streak, setStreak] = useState(0);
   const [feedback, setFeedback] = useState("");
 
-  const [streak, setStreak] = useState(
-    JSON.parse(localStorage.getItem("streak")) || 0
-  );
+  const [attempts, setAttempts] = useState(0);
+  const [correct, setCorrect] = useState(0);
 
-  const [attempts, setAttempts] = useState(
-    JSON.parse(localStorage.getItem("attempts")) || 0
-  );
-
-  const [correct, setCorrect] = useState(
-    JSON.parse(localStorage.getItem("correct")) || 0
-  );
-
-  const [mistakes, setMistakes] = useState(
-    JSON.parse(localStorage.getItem("mistakes")) || []
-  );
-
+  const [mistakes, setMistakes] = useState([]);
   const [weakMode, setWeakMode] = useState(false);
 
-  /* ---------------- SAVE ---------------- */
-  useEffect(() => {
-    localStorage.setItem("streak", streak);
-    localStorage.setItem("attempts", attempts);
-    localStorage.setItem("correct", correct);
-    localStorage.setItem("mistakes", JSON.stringify(mistakes));
-  }, [streak, attempts, correct, mistakes]);
+  /* ---------------- SHUFFLE ---------------- */
+  const shuffle = (arr) => {
+    return [...arr].sort(() => Math.random() - 0.5);
+  };
 
-  /* ---------------- QUESTION ENGINE ---------------- */
-  const getQuestion = () => {
+  /* ---------------- LOAD QUESTIONS ---------------- */
+  const loadQuestions = () => {
     let pool = quizData[subject][difficulty];
 
     if (weakMode && mistakes.length > 0) {
@@ -143,45 +130,58 @@ export default function App() {
       if (weakPool.length > 0) pool = weakPool;
     }
 
-    const random = pool[Math.floor(Math.random() * pool.length)];
-    setCurrentQ(random);
+    const shuffled = shuffle(pool);
+    setQueue(shuffled);
+    setCurrentQ(shuffled[0]);
   };
 
   useEffect(() => {
-    getQuestion();
+    loadQuestions();
   }, [subject, difficulty, weakMode]);
 
-  /* ---------------- ANSWER SYSTEM ---------------- */
+  /* ---------------- NEXT QUESTION ---------------- */
+  const nextQuestion = () => {
+    if (queue.length > 1) {
+      const newQueue = queue.slice(1);
+      setQueue(newQueue);
+      setCurrentQ(newQueue[0]);
+    } else {
+      loadQuestions(); // reload fresh shuffled set
+    }
+  };
+
+  /* ---------------- ANSWER ---------------- */
   const handleAnswer = (opt) => {
-    setAttempts(prev => prev + 1);
+    setAttempts(a => a + 1);
 
     if (opt === currentQ.answer) {
-      setCorrect(prev => prev + 1);
-      setStreak(prev => prev + 1);
+      setCorrect(c => c + 1);
+      setStreak(s => s + 1);
       setFeedback("✅ Correct!");
 
       if (streak >= 3 && difficulty === "easy") setDifficulty("medium");
       if (streak >= 6 && difficulty === "medium") setDifficulty("hard");
 
     } else {
-      setFeedback("❌ Wrong");
       setStreak(0);
-      setMistakes(prev => [...prev, currentQ.topic]);
+      setFeedback("❌ Wrong");
+      setMistakes(m => [...m, currentQ.topic]);
     }
 
     setTimeout(() => {
       setFeedback("");
-      getQuestion();
-    }, 800);
+      nextQuestion();
+    }, 700);
   };
 
   const accuracy = attempts ? ((correct / attempts) * 100).toFixed(0) : 0;
 
-  /* ---------------- AI-STYLE INSIGHT ---------------- */
-  const insight = () => {
-    if (accuracy > 80) return "🔥 Strong performance — move to harder questions";
-    if (accuracy > 50) return "⚡ Good — revise weak topics";
-    return "📉 Focus on basics + repeat mistakes";
+  /* ---------------- START STUDY ---------------- */
+  const startStudy = () => {
+    setSubject(todaysSubject);
+    setDifficulty("easy");
+    setStreak(0);
+    loadQuestions();
   };
 
   return (
@@ -194,7 +194,7 @@ export default function App() {
         <div style={card}>
           <h2>🎯 Today’s Focus</h2>
           <h3>{todaysSubject}</h3>
-          <button style={mainBtn} onClick={() => setSubject(todaysSubject)}>
+          <button style={mainBtn} onClick={startStudy}>
             Start Study
           </button>
         </div>
@@ -202,8 +202,25 @@ export default function App() {
         {/* STUDY PLAN */}
         <div style={card}>
           <h2>📅 Study Plan</h2>
-          {studyPlanMap[subject].map((t, i) => (
-            <div key={i} style={task}>{t}</div>
+
+          {studyPlanMap[subject].map((task, i) => (
+            <div
+              key={i}
+              style={taskStyle}
+              onClick={() => setSubject(subject)}
+            >
+              {task}
+            </div>
+          ))}
+        </div>
+
+        {/* SUBJECT SWITCH */}
+        <div style={card}>
+          <h2>📚 Subjects</h2>
+          {subjects.map(s => (
+            <button key={s} style={button} onClick={() => setSubject(s)}>
+              {s}
+            </button>
           ))}
         </div>
 
@@ -232,8 +249,6 @@ export default function App() {
           <div style={progressBar}>
             <div style={{ ...progressFill, width: `${accuracy}%` }} />
           </div>
-
-          <p>{insight()}</p>
         </div>
 
         {/* WEAK MODE */}
@@ -242,21 +257,6 @@ export default function App() {
           <button style={mainBtn} onClick={() => setWeakMode(!weakMode)}>
             {weakMode ? "Disable Weak Mode" : "Practice Weak Topics"}
           </button>
-        </div>
-
-        {/* WEAK TOPICS */}
-        <div style={card}>
-          <h2>⚠️ Weak Topics</h2>
-          {[...new Set(mistakes)].map((m, i) => (
-            <div key={i}>{m}</div>
-          ))}
-        </div>
-
-        {/* MESSAGE */}
-        <div style={card}>
-          <p>
-            Just focus on today. Consistency beats everything.
-          </p>
         </div>
 
       </div>
@@ -323,9 +323,10 @@ const progressFill = {
   background: "#fff"
 };
 
-const task = {
+const taskStyle = {
   padding: 10,
   marginTop: 8,
   background: "rgba(255,255,255,0.2)",
-  borderRadius: 10
+  borderRadius: 10,
+  cursor: "pointer"
 };
