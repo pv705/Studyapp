@@ -177,12 +177,24 @@ export default function App() {
   const accuracy = attempts ? ((correct / attempts) * 100).toFixed(0) : 0;
 
   /* ---------------- START STUDY ---------------- */
-  const startStudy = () => {
-    setSubject(todaysSubject);
-    setDifficulty("easy");
-    setStreak(0);
+ const startStudy = () => {
+  // switch to today's subject
+  setSubject(todaysSubject);
+
+  // reset session stats (NOT lifetime progress)
+  setStreak(0);
+  setFeedback("");
+
+  // start from easy
+  setDifficulty("easy");
+
+  // clear queue and reload fresh questions
+  setQueue([]);
+  
+  setTimeout(() => {
     loadQuestions();
-  };
+  }, 0);
+};
 
   return (
     <div style={container}>
